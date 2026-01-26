@@ -11,5 +11,37 @@ generator client {
 
 datasource db {
   provider = "postgresql"
-  url      = env("DATABASE_URL")
+}
+
+model User {
+  id Int @id @default(autoincrement())
+  email String @unique
+  password String
+  folders Folder[]
+}
+
+model Folder {
+  id Int @id @default(autoincrement())
+  name String
+  user User @relation(fields: [userId], references: [id])
+  userId Int
+  files File[]
+}
+
+model File {
+  id Int @id @default(autoincrement())
+  name String
+  url String
+  size Int
+  uploadTime DateTime
+  folder Folder @relation(fields: [folderId], references: [id])
+  folderId Int
+}
+
+//to persist sessions in db for session based auth https://github.com/kleydon/prisma-session-store#readme
+model Session {
+  id        String   @id
+  sid       String   @unique
+  data      String
+  expiresAt   DateTime
 }
