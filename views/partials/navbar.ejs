@@ -1,0 +1,14 @@
+<header>
+    <nav>
+        <h1>Members-only message board</h1>
+        <% if (locals.user) {%>
+            <div>Hello <%=locals.user.first_name %></div>
+            <a href="/">Home page</a>
+            <a href="/log-out">Log out</a>
+            <% } else { %>
+                <a href="/">Home page</a>
+                <a href="/sign-in">Sign-in</a>
+                <a href="/sign-up">Sign-up</a>
+                <% } %>
+    </nav>
+</header>

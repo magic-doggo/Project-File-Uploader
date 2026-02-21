@@ -44,10 +44,13 @@ app.use(
 );
 app.use(passport.session());
 
-app.get("/", (req, res) => res.send("Hello, world!"));
+app.get("/", (req, res) => res.render("index", {}));
+app.get("/sign-up", (req, res) => res.render("sign-up", {}));
+app.get("/sign-in", (req, res) => res.render("sign-in", {}));
+
+
 // app.get("/", async (req, res) => {
 //   console.log("messages", messages);
-//   // res.render("index", {})
 // });
 
 passport.use(
@@ -90,6 +93,7 @@ passport.deserializeUser(async (id, done) => {
     done(err);
   }
 })
+
 
 const PORT = 3000;
 app.listen(PORT, (error) => {

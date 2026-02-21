@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Index</title>
+</head>
+
+<body>
+    <%- include("partials/navbar") %>
+        <div>
+            <h2>Create a new Post</h2>
+            <% if (!locals.user) {%>
+                <div>You are not logged in. Please <a href="/sign-in">log in </a>to create a post, and see more details
+                    about existing posts!</div>
+                <% } else { %>
+                    <form action="/newFile" method="post" enctype="multipart/form-data">
+                        <label for="file">Choose file to upload</label>
+                        <input type="file" id="file" name="file" multiple />
+                        <button type="submit">Submit</button>
+                    </form>
+                    <% } %>
+        </div>
+        <script>
+
+        </script>
+</body>
+
+</html>

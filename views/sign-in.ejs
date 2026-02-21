@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Sign-In</title>
+</head>
+
+<body>
+    <%- include("partials/navbar") %>
+    <% if (locals.user) {%>
+        <h1>WELCOME BACK <%= user.username %>
+        </h1>
+        <a href="/log-out">LOG OUT</a>
+        <% } else { %>
+            <h1>please log in</h1>
+            <form action="/sign-in" method="post">
+                <label for="username">Username</label>
+                <input type="text" name="username" id="username" required>
+                <label for="password">Password</label>
+                <input type="password" name="password" id="password" required>
+                <button type="submit">Sign In</button>
+            </form>
+            <%}%>
+
+</body>
+
+</html>
