@@ -2,6 +2,8 @@ const path = require("node:path");
 const bcrypt = require("bcryptjs");
 
 const express = require("express");
+const multer  = require('multer')
+const upload = multer({ dest: 'uploads/' })
 const app = express();
 
 const passport = require("passport");
@@ -98,6 +100,18 @@ app.post("/sign-up",
     failureRedirect: "/sign-in"
   })
 )
+
+app.post("/upload", upload.array('files', 10), (req, res) => {
+  try {
+    if (!req.files) {
+      return res.status(400).send('No files uploaded');
+    }
+    console.log(`uploaded ${req.files.length} files(s)`)
+  }
+  catch(err) {
+    res.status(500).send(err.message);
+  }
+})
 
 passport.use(
   new LocalStrategy({
