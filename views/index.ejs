@@ -14,12 +14,20 @@
                 <div>You are not logged in. Please <a href="/sign-in">log in</a> to upload a file, or review your
                     current files!</div>
                 <% } else { %>
-                    <form action="/newFile" method="post" enctype="multipart/form-data">
-                        <label for="file">Choose file to upload</label>
-                        <input type="file" id="file" name="file" multiple />
+                    <form action="/upload" method="post" enctype="multipart/form-data">
+                        <label for="files">Choose files to upload</label>
+                        <input type="file" id="files" name="files" multiple />
                         <button type="submit">Submit</button>
                     </form>
+
+                    <!-- <form action="createNewFolder" method="post">
+                        <input type="text" id="folder" name="folder" placeholder="folder name" />
+                        <button type="submit">Create folder</button>
+                    </form> -->
                     <% } %>
+
+
+
         </div>
         <script>
 

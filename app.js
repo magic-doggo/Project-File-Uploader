@@ -113,6 +113,10 @@ app.post("/upload", upload.array('files', 10), (req, res) => {
   }
 })
 
+// app.post("*/createNewFolder", (req, res) => {
+  
+// })
+
 passport.use(
   new LocalStrategy({
     usernameField: "email",
