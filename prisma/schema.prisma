@@ -25,6 +25,10 @@ model Folder {
   name String
   user User @relation(fields: [userId], references: [id])
   userId Int
+
+  parentId Int?
+  parent Folder? @relation("NestedFolders", fields: [parentId], references: [id])
+  children Folder[] @relation("NestedFolders")
   files File[]
 }
 

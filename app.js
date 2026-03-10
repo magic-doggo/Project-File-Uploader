@@ -2,7 +2,7 @@ const path = require("node:path");
 const bcrypt = require("bcryptjs");
 
 const express = require("express");
-const multer  = require('multer')
+const multer = require('multer')
 const upload = multer({ dest: 'uploads/' })
 const app = express();
 
@@ -47,9 +47,17 @@ app.use(
 );
 app.use(passport.session());
 
-app.get("/", (req, res) => {console.log("current user: ", req.user); res.render("index", {user: req.user})});
-app.get("/sign-up", (req, res) => res.render("sign-up", {user: req.user}));
-app.get("/sign-in", (req, res) => res.render("sign-in", {user: req.user}));
+app.get("/", async (req, res) => {
+  const folders = await prisma.folder.findMany({
+    where: { parentId: null, userId: req.user?.id }
+  })
+  console.log("current user: ", req.user);
+  res.render("index", { user: req.user, folders, currentFolder: null })
+});
+
+
+app.get("/sign-up", (req, res) => res.render("sign-up", { user: req.user }));
+app.get("/sign-in", (req, res) => res.render("sign-in", { user: req.user }));
 app.get("/log-out", (req, res, next) => {
   req.logout((err) => {
     if (err) {
@@ -57,6 +65,26 @@ app.get("/log-out", (req, res, next) => {
     }
     res.redirect("/");
   })
+});
+
+//MAKE SURE! this is the last .get routes, otherwise this would get called for get requests like /sign-up
+//this route is made specifically to get folder ids. find a better way?
+app.get("/:id", async (req, res, next) => {
+  if (isNaN(req.params.id)) return next();
+  try {
+    const folderId = parseInt(req.params.id);
+    const currentFolder = await prisma.folder.findUnique({
+      where: { id: folderId },
+      include: { children: true, files: true }
+    });
+    console.log("current folder: ", currentFolder)
+    if (!currentFolder) return res.status(404).send("Folder not found")
+    res.render("index", { user: req.user, folders: currentFolder.children, currentFolder })
+
+  } catch (err) {
+    next(err)
+  }
+  console.log("current user: ", req.user);
 });
 
 app.post("/sign-up",
@@ -94,7 +122,7 @@ app.post("/sign-up",
     }
   });
 
-  app.post("/sign-in",
+app.post("/sign-in",
   passport.authenticate("local", {
     successRedirect: "/",
     failureRedirect: "/sign-in"
@@ -108,14 +136,48 @@ app.post("/upload", upload.array('files', 10), (req, res) => {
     }
     console.log(`uploaded ${req.files.length} files(s)`)
   }
-  catch(err) {
+  catch (err) {
     res.status(500).send(err.message);
   }
 })
 
-// app.post("*/createNewFolder", (req, res) => {
-  
-// })
+app.post("/createNewFolder", async (req, res) => {
+  // console.log("req.params: ", req.params.path , " req.body: ", req.body)
+  await prisma.folder.create({
+    data: {
+      name: req.body.folder,
+      userId: req.user.id,
+      parentId: null
+    }
+  })
+  // res.send(`Folder path: ${folderLocation}/${req.body.folder}`)
+  res.redirect("/");
+});
+
+app.post("/:id/createNewFolder", async (req, res, next) => {
+  if (isNaN(req.params.id)) return next();
+  const parentFolderId = parseInt(req.params.id);
+  try {
+    const parentFolder = await prisma.folder.findFirst({
+      where: {
+        id: parentFolderId,
+        userId: req.user.id
+      }
+    });
+    if (!parentFolder) return res.status(404).send("Parent folder not found / Access Denied");
+    await prisma.folder.create({
+      data: {
+        name: req.body.folder,
+        userId: req.user.id,
+        parentId: parentFolderId
+      }
+    })
+    res.redirect(`/${parentFolderId}`);
+  } catch (err) {
+    console.error(err);
+    res.status(500).send("server error");
+  }
+})
 
 passport.use(
   new LocalStrategy({

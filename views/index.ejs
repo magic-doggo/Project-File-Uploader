@@ -20,14 +20,25 @@
                         <button type="submit">Submit</button>
                     </form>
 
-                    <!-- <form action="createNewFolder" method="post">
+                    <form action=" <%= currentFolder ? ('/' + currentFolder.id) : '' %>/createNewFolder" method="post">
                         <input type="text" id="folder" name="folder" placeholder="folder name" />
                         <button type="submit">Create folder</button>
-                    </form> -->
+                    </form>
                     <% } %>
 
 
-
+            <div>
+                <ul>
+                    <% folders.forEach(folder => { %>
+                        <li><a href="/<%= folder.id%>"><%=folder.name%></a></li>
+                    <%})%>
+                </ul>
+            </div>
+            <div>
+               <% if (currentFolder){ %>
+                <a href="<%= currentFolder.parentId ? '/' + currentFolder.parentId : '/' %>">Back</a>
+               <%}%>
+            </div>
         </div>
         <script>
 
