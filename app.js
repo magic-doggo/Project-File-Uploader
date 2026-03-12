@@ -48,11 +48,13 @@ app.use(
 app.use(passport.session());
 
 app.get("/", async (req, res) => {
-  const folders = await prisma.folder.findMany({
+  let folders = [];
+  if (req.user) {
+    folders = await prisma.folder.findMany({
     where: { parentId: null, userId: req.user?.id }
   })
-  console.log("current user: ", req.user);
-  res.render("index", { user: req.user, folders, currentFolder: null })
+  }
+  res.render("index", { user: req.user, folders, currentFolder: null }) // currentFolder is used by app.get("/:id") route, which shares same index page ejs
 });
 
 
@@ -74,7 +76,10 @@ app.get("/:id", async (req, res, next) => {
   try {
     const folderId = parseInt(req.params.id);
     const currentFolder = await prisma.folder.findUnique({
-      where: { id: folderId },
+      where: {
+        id: folderId,
+        userId: req.user.id
+      },
       include: { children: true, files: true }
     });
     console.log("current folder: ", currentFolder)
