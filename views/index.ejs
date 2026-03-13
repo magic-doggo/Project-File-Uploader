@@ -30,7 +30,13 @@
             <div>
                 <ul>
                     <% folders.forEach(folder => { %>
-                        <li><a href="/<%= folder.id%>"><%=folder.name%></a></li>
+                        <li>
+                            <a href="/<%= folder.id%>"><%=folder.name%></a>
+
+                            <button onclick="renameFolder('<%= folder.id %>', '<%= folder.name %>')"> Rename</button>
+                            <form id="rename-form" method="post" style="display:none"></form>
+                        </li>
+                        <form action=""></form>
                     <%})%>
                 </ul>
             </div>
@@ -41,7 +47,15 @@
             </div>
         </div>
         <script>
-
+            function renameFolder(folderId, oldName) {
+                const newName = window.prompt("Enter a new Folder Name:" , oldName);
+                if (newName !== null && newName.trim() !== "") {
+                    const form = document.getElementById('rename-form');
+                    form.action = `/renameFolder/${folderId}`;
+                    form.innerHTML = `<input type"hidden" name="newName" value="${newName}">`;
+                    form.submit();
+                }
+            }
         </script>
 </body>
 

@@ -82,14 +82,14 @@ app.get("/:id", async (req, res, next) => {
       },
       include: { children: true, files: true }
     });
-    console.log("current folder: ", currentFolder)
+    // console.log("current folder: ", currentFolder)
     if (!currentFolder) return res.status(404).send("Folder not found")
     res.render("index", { user: req.user, folders: currentFolder.children, currentFolder })
 
   } catch (err) {
     next(err)
   }
-  console.log("current user: ", req.user);
+  // console.log("current user: ", req.user);
 });
 
 app.post("/sign-up",
@@ -184,6 +184,17 @@ app.post("/:id/createNewFolder", async (req, res, next) => {
   }
 })
 
+app.post("/renameFolder/:id", async(req, res) => {
+    const updateFolder = await prisma.folder.update({
+      where: { id: parseInt(req.params.id)},
+      data: { name: req.body.newName}
+    })
+    // res.redirect(`/${req.params.id}`);
+    // res.redirect(".");
+    const backURL = req.get('Referrer') || '/';
+    res.redirect(backURL);
+})
+
 passport.use(
   new LocalStrategy({
     usernameField: "email",
@@ -192,7 +203,7 @@ passport.use(
       // const { rows } = await pool.query("SELECT * FROM Users WHERE email = $1", [username]);
       // const user = rows[0];
       const user = await prisma.user.findUnique({ where: { email: email } }) //where: {id: 42}
-      console.log(user, "user")
+      // console.log(user, "user")
       if (!user) {
         console.log("no user")
         return done(null, false, { message: "Incorrect username" });
