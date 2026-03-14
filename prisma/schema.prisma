@@ -27,7 +27,7 @@ model Folder {
   userId Int
 
   parentId Int?
-  parent Folder? @relation("NestedFolders", fields: [parentId], references: [id])
+  parent Folder? @relation("NestedFolders", fields: [parentId], references: [id], onDelete: Cascade)
   children Folder[] @relation("NestedFolders")
   files File[]
 }

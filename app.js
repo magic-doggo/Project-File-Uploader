@@ -51,8 +51,8 @@ app.get("/", async (req, res) => {
   let folders = [];
   if (req.user) {
     folders = await prisma.folder.findMany({
-    where: { parentId: null, userId: req.user?.id }
-  })
+      where: { parentId: null, userId: req.user?.id }
+    })
   }
   res.render("index", { user: req.user, folders, currentFolder: null }) // currentFolder is used by app.get("/:id") route, which shares same index page ejs
 });
@@ -184,15 +184,41 @@ app.post("/:id/createNewFolder", async (req, res, next) => {
   }
 })
 
-app.post("/renameFolder/:id", async(req, res) => {
+app.post("/renameFolder/:id", async (req, res) => {
+  try {
     const updateFolder = await prisma.folder.update({
-      where: { id: parseInt(req.params.id)},
-      data: { name: req.body.newName}
+      where: {
+        id: parseInt(req.params.id),
+        userId: req.user.id
+      },
+      data: { name: req.body.newName }
     })
-    // res.redirect(`/${req.params.id}`);
-    // res.redirect(".");
+    // 'back' was deprecated https://expressjs.com/en/4x/api.html, use this to refresh
     const backURL = req.get('Referrer') || '/';
     res.redirect(backURL);
+  }
+  catch (err) {
+    console.error()
+    res.status(500).send("Could not rename folder. It does not exist or you do not own this folder");
+  }
+})
+
+app.post("/deleteFolder/:id", async (req, res) => {
+  if (!req.user) return res.redirect("/sign-in");
+  try {
+    const folderId = parseInt(req.params.id);
+    const deleteFolder = await prisma.folder.delete({
+      where: {
+        id: folderId,
+        userId: req.user.id
+      }
+    });
+    const backURL = req.get('Referrer') || '/';
+    res.redirect(backURL);
+  } catch (err) {
+    console.error()
+    res.status(500).send("Could not delete folder. It does not exist or you do not own this folder");
+  }
 })
 
 passport.use(

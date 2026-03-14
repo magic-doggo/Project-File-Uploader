@@ -33,10 +33,12 @@
                         <li>
                             <a href="/<%= folder.id%>"><%=folder.name%></a>
 
-                            <button onclick="renameFolder('<%= folder.id %>', '<%= folder.name %>')"> Rename</button>
+                            <button onclick="renameFolder('<%= folder.id %>', '<%= folder.name %>')">Rename</button>
                             <form id="rename-form" method="post" style="display:none"></form>
+                            <form action="/deleteFolder/<%=folder.id%>" method="post">
+                                <button type="submit">Delete Folder</button>
+                            </form>
                         </li>
-                        <form action=""></form>
                     <%})%>
                 </ul>
             </div>
