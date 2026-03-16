@@ -18,6 +18,7 @@ model User {
   email String @unique
   password String
   folders Folder[]
+  files File[]
 }
 
 model Folder {
@@ -37,9 +38,11 @@ model File {
   name String
   url String
   size Int
-  uploadTime DateTime
-  folder Folder @relation(fields: [folderId], references: [id])
-  folderId Int
+  userId Int
+  user User @relation(fields: [userId], references: [id])
+  uploadTime DateTime @default(now())
+  folder Folder? @relation(fields: [folderId], references: [id], onDelete: Cascade)
+  folderId Int?
 }
 
 //to persist sessions in db for session based auth https://github.com/kleydon/prisma-session-store#readme
