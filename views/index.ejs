@@ -26,13 +26,13 @@
                     </form>
                     <% } %>
 
-            <h2>Files in current Folder (<%= currentFolder.name ? currentFolder.name : "Home Folder" %>):</h2>
+            <h2>Files in current Folder (<%= currentFolder?.name ? currentFolder.name : "Home Folder" %>):</h2>
             <!-- make separate message if folder is empty? -->
             <ul>
                 <% currentFolder?.files?.forEach(file => {%>
                     <li>
                         <%= file.name %> (<%= (file.size / 1024).toFixed(2) %> KB)
-                        <a href="/download/<%= file.id %>">Download do not click</a>
+                        <a href="/download/<%= file.id %>">Download file</a>
                     </li>
                 <%}) %>
             </ul>

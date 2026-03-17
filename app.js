@@ -74,6 +74,23 @@ app.get("/log-out", (req, res, next) => {
   })
 });
 
+app.get("/download/:fileId", async (req, res) => {
+  try {
+    const file = await prisma.file.findUnique({
+      where: {
+        id: parseInt(req.params.fileId),
+        userId: req.user.id
+      }
+    });
+    if (!file) return res.status(404).send("File not Found");
+    const absolutePath = path.join(__dirname, file.url);
+    res.download(absolutePath, file.name);
+  } catch (err) {
+    console.error(err);
+    res.status(500).send("error downloading file");
+  }
+})
+
 //MAKE SURE! this is the last .get routes, otherwise this would get called for get requests like /sign-up
 //this route is made specifically to get folder ids. find a better way?
 app.get("/:id", async (req, res, next) => {
