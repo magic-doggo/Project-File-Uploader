@@ -48,13 +48,18 @@ app.use(
 app.use(passport.session());
 
 app.get("/", async (req, res) => {
-  let folders = [];
-  if (req.user) {
-    folders = await prisma.folder.findMany({
-      where: { parentId: null, userId: req.user?.id }
-    })
-  }
-  res.render("index", { user: req.user, folders, currentFolder: null }) // currentFolder is used by app.get("/:id") route, which shares same index page ejs
+  if (!req.user) return res.render("index", { user: null, folders: [], currentFolder: null });
+  const folders = await prisma.folder.findMany({
+    where: { parentId: null, userId: req.user.id }
+  });
+  const files = await prisma.file.findMany({
+    where: {
+      folderId: null, //in home folder
+      userId: req.user.id
+    }
+  })
+  console.log(files)
+  res.render("index", { user: req.user, folders, currentFolder: { files: files } }) // currentFolder is used by app.get("/:id") route, which shares same index page ejs
 });
 
 
@@ -82,8 +87,8 @@ app.get("/:id", async (req, res, next) => {
       },
       include: { children: true, files: true }
     });
-    // console.log("current folder: ", currentFolder)
     if (!currentFolder) return res.status(404).send("Folder not found")
+    console.log("currentFolder: ", currentFolder, " CurrentFolderChildren: ", currentFolder.children)
     res.render("index", { user: req.user, folders: currentFolder.children, currentFolder })
 
   } catch (err) {
@@ -134,15 +139,33 @@ app.post("/sign-in",
   })
 )
 
-app.post("/upload", upload.array('files', 10), (req, res) => {
+//upload files either in home page or specified folderId
+//maybe move .get / and /:id to same get call in array like below when moving this to separate route folders?
+app.post(["/upload", "/upload/:folderId"], upload.array('files', 10), async (req, res) => {
+  const parentFolderId = req.params.folderId ? parseInt(req.params.folderId) : null;
+  console.log("req.files: ", req.files, "req.params: ", req.params)
   try {
-    if (!req.files) {
+    if (!req.files || req.files.length === 0) {
       return res.status(400).send('No files uploaded');
     }
     console.log(`uploaded ${req.files.length} files(s)`)
-  }
-  catch (err) {
-    res.status(500).send(err.message);
+    const filesData = req.files.map(file => ({
+      name: file.originalname,
+      url: file.path,
+      size: file.size,
+      folderId: parentFolderId,
+      userId: req.user.id
+    }));
+    console.log("files data: ", filesData)
+
+    await prisma.file.createManyAndReturn({
+      data: filesData,
+    })
+    let redirectURL = parentFolderId ? `/${parentFolderId}` : "/"
+    res.redirect(redirectURL);
+  } catch (err) {
+    console.error(err);
+    res.status(500).send("Upload failed");
   }
 })
 
@@ -271,3 +294,9 @@ app.listen(PORT, (error) => {
   console.log("app listening on port 3000!");
 });
 
+
+
+// if i proceed with null home folder for each user:
+// each file must have an user assigned to it
+// the folderid of a file can be null
+// need separate logic in ejs and app.js/routes for creating in home page vs inside a folder

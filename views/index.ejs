@@ -9,24 +9,35 @@
 <body>
     <%- include("partials/navbar") %>
         <div>
-            <h2>Create a new Post</h2>
             <% if (!locals.user) {%>
                 <div>You are not logged in. Please <a href="/sign-in">log in</a> to upload a file, or review your
                     current files!</div>
                 <% } else { %>
-                    <form action="/upload" method="post" enctype="multipart/form-data">
+                    <form action="/upload<%= currentFolder ? ('/' + currentFolder.id) : '' %>" method="post" enctype="multipart/form-data">
                         <label for="files">Choose files to upload</label>
                         <input type="file" id="files" name="files" multiple />
                         <button type="submit">Submit</button>
-                    </form>
+                    </form><br>
 
                     <form action=" <%= currentFolder ? ('/' + currentFolder.id) : '' %>/createNewFolder" method="post">
-                        <input type="text" id="folder" name="folder" placeholder="folder name" />
+                        <label for="folder">Create a new Folder</label>
+                        <input type="text" id="folder" name="folder" placeholder="folder name" required/>
                         <button type="submit">Create folder</button>
                     </form>
                     <% } %>
 
+            <h2>Files in current Folder (<%= currentFolder.name ? currentFolder.name : "Home Folder" %>):</h2>
+            <!-- make separate message if folder is empty? -->
+            <ul>
+                <% currentFolder?.files?.forEach(file => {%>
+                    <li>
+                        <%= file.name %> (<%= (file.size / 1024).toFixed(2) %> KB)
+                        <a href="/download/<%= file.id %>">Download do not click</a>
+                    </li>
+                <%}) %>
+            </ul>
 
+            <h2>Sub-folders:</h2>
             <div>
                 <ul>
                     <% folders.forEach(folder => { %>
@@ -54,7 +65,7 @@
                 if (newName !== null && newName.trim() !== "") {
                     const form = document.getElementById('rename-form');
                     form.action = `/renameFolder/${folderId}`;
-                    form.innerHTML = `<input type"hidden" name="newName" value="${newName}">`;
+                    form.innerHTML = `<input type"=hidden" name="newName" value="${newName}">`;
                     form.submit();
                 }
             }
