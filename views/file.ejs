@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <title>File Details</title>
+</head>
+
+<body>
+    <%- include("partials/navbar") %>
+    <ul>
+        <li><%= file.name%></li>
+        <li><%= (file.size / 1024).toFixed(2) %> KB</li>
+        <li><%= file.uploadTime%></li>
+
+    </ul>
+</body>
+
+</html>

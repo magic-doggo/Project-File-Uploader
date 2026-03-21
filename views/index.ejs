@@ -31,7 +31,7 @@
             <ul>
                 <% currentFolder?.files?.forEach(file => {%>
                     <li>
-                        <%= file.name %> (<%= (file.size / 1024).toFixed(2) %> KB)
+                        <a href="/file/<%=file.id%>"><%= file.name %> (<%= (file.size / 1024).toFixed(2) %> KB)</a>
                         <a href="/download/<%= file.id %>">Download file</a>
                     </li>
                 <%}) %>
@@ -65,7 +65,7 @@
                 if (newName !== null && newName.trim() !== "") {
                     const form = document.getElementById('rename-form');
                     form.action = `/renameFolder/${folderId}`;
-                    form.innerHTML = `<input type"=hidden" name="newName" value="${newName}">`;
+                    form.innerHTML = `<input type="hidden" name="newName" value="${newName}">`;
                     form.submit();
                 }
             }

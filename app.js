@@ -11,17 +11,18 @@ const LocalStrategy = require('passport-local').Strategy;
 const { body, validationResult } = require('express-validator');
 app.use(express.urlencoded({ extended: false }));
 
-//https://github.com/kleydon/prisma-session-store#readme
-const expressSession = require('express-session');
-require('dotenv/config'); //not require('dotenv').config(); ?
-const { PrismaPg } = require('@prisma/adapter-pg');  // For other db adapters, see Prisma docs
-const { PrismaClient } = require('./generated/prisma/client.js');
+const {prisma} = require('./lib/prisma.js')
 const { PrismaSessionStore } = require('@quixo3/prisma-session-store');
+const expressSession = require('express-session');
 
-// DATABASE_URL defined in env file included in prisma.config.js; see Prisma docs
-const connectionString = `${process.env.DATABASE_URL}`;
-const adapter = new PrismaPg({ connectionString });
-const prisma = new PrismaClient({ adapter });
+//https://github.com/kleydon/prisma-session-store#readme   ; moved most of this to lib/prisma.js
+// require('dotenv/config'); //not require('dotenv').config(); ?
+// const { PrismaPg } = require('@prisma/adapter-pg');  // For other db adapters, see Prisma docs
+// const { PrismaClient } = require('./generated/prisma/client.js');
+// DATABASE_URL defined in env file included in prisma.config.js;
+// const connectionString = `${process.env.DATABASE_URL}`;
+// const adapter = new PrismaPg({ connectionString });
+// const prisma = new PrismaClient({ adapter });
 
 app.set("views", path.join(__dirname, "views"));
 app.set("view engine", "ejs");
@@ -46,6 +47,8 @@ app.use(
   })
 );
 app.use(passport.session());
+
+const fileRouter = require("./routes/fileRouter.js")
 
 app.get("/", async (req, res) => {
   if (!req.user) return res.render("index", { user: null, folders: [], currentFolder: null });
@@ -90,6 +93,24 @@ app.get("/download/:fileId", async (req, res) => {
     res.status(500).send("error downloading file");
   }
 })
+
+app.use("/file", fileRouter);
+
+// app.get("/file/:fileId", async(req, res) => {
+//   try {
+//     const file = await prisma.file.findUnique({
+//       where: {
+//         id: parseInt(req.params.fileId),
+//         userId: req.user.id
+//       }
+//     });
+//     if (!file) return res.status(404).send('File not Found');
+//     res.render("file", { file: file})
+//   } catch (err) {
+//     console.err(err);
+//     res.status(500).send("error getting file details")
+//   }
+// })
 
 //MAKE SURE! this is the last .get routes, otherwise this would get called for get requests like /sign-up
 //this route is made specifically to get folder ids. find a better way?
