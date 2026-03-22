@@ -1,4 +1,5 @@
 const path = require("node:path");
+const fs = require("node:fs/promises");
 const bcrypt = require("bcryptjs");
 
 const express = require("express");
@@ -11,7 +12,7 @@ const LocalStrategy = require('passport-local').Strategy;
 const { body, validationResult } = require('express-validator');
 app.use(express.urlencoded({ extended: false }));
 
-const {prisma} = require('./lib/prisma.js')
+const { prisma } = require('./lib/prisma.js')
 const { PrismaSessionStore } = require('@quixo3/prisma-session-store');
 const expressSession = require('express-session');
 
@@ -207,6 +208,54 @@ app.post(["/upload", "/upload/:folderId"], upload.array('files', 10), async (req
   }
 })
 
+app.post("/deleteFile/:fileId", async (req, res) => {
+  if (!req.user) return res.redirect("/sign-in");
+  let fileId = parseInt(req.params.fileId);
+  try {
+    const file = await prisma.file.findUnique({
+      where: {
+        id: fileId,
+        userId: req.user.id
+      }
+    });
+    if (!file) {
+      return res.status(404).send("File not found or belongs to another user")
+    }
+
+    try {
+      const filePath = path.join(__dirname, file.url);
+      await fs.unlink(filePath);
+    } catch (err) {
+      console.err("Could not delete from file system: ", err)
+    }
+
+    await prisma.file.delete({
+      where: {
+        id: fileId
+      }
+    });
+    const backURL = req.get('Referrer') || '/';
+    res.redirect(backURL);
+  } catch (err) {
+    console.error(err);
+    res.status(500).send("Failed to delete file");
+  }
+
+  // try {
+  //   await prisma.file.delete({
+  //     where: {
+  //       id: fileId,
+  //       userId: req.user.id
+  //     }
+  //   })
+  //   const backURL = req.get('Referrer') || '/';
+  //   res.redirect(backURL);
+  // } catch (err) {
+  //   console.error(err);
+  //   res.status(500).send("Failed to delete file")
+  // }
+})
+
 app.post("/createNewFolder", async (req, res) => {
   // console.log("req.params: ", req.params.path , " req.body: ", req.body)
   await prisma.folder.create({
@@ -268,7 +317,40 @@ app.post("/deleteFolder/:id", async (req, res) => {
   if (!req.user) return res.redirect("/sign-in");
   try {
     const folderId = parseInt(req.params.id);
-    const deleteFolder = await prisma.folder.delete({
+
+    async function getAllDescendantFolderIds(parentId) {
+      const children = await prisma.folder.findMany({
+        where: {
+          parentId: parentId,
+          userId: req.user.id
+        }
+      })
+      let ids = children.map(c => c.id);
+      for (let child of children) {
+        const descendantIds = await getAllDescendantFolderIds(child.id);
+        ids = ids.concat(descendantIds)
+      }
+      return ids;
+    }
+
+    const descendantFolderIds = await getAllDescendantFolderIds(folderId);
+    const allFolderIds = [folderId, ...descendantFolderIds];
+    const files = await prisma.file.findMany({
+      where: {
+        folderId: { in: allFolderIds },
+        userId: req.user.id
+      }
+    })
+
+    for (let file of files) {
+      try {
+        let filePath = path.join(__dirname, file.url);
+        await fs.unlink(filePath)
+      } catch (err) {
+        console.error(`Could not delete from file system file ${file.name}: ` , err);
+      }
+    }
+    await prisma.folder.delete({
       where: {
         id: folderId,
         userId: req.user.id
