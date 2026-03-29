@@ -19,6 +19,6 @@ fileRouter.get("/:fileId", async (req, res) => {
 })
 
 module.exports = fileRouter;
-// The PrismaSessionStore setup, expressSession, and other Express middleware stay in app.js — only the PrismaClient instantiation moves to lib/prisma.js. This way, the same single prisma instance is reused everywhere, which is the recommended approach. [single instance] [long-running apps]
+// PrismaClient instantiation moved to lib/prisma.js, rest stays in app.js.
 // https://www.prisma.io/docs/orm/prisma-client/setup-and-configuration/introduction
 // https://www.prisma.io/docs/orm/prisma-client/setup-and-configuration/databases-connections#long-running-processes

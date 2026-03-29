@@ -1,10 +1,22 @@
 const path = require("node:path");
 const fs = require("node:fs/promises");
 const bcrypt = require("bcryptjs");
+require('dotenv/config');
+const cloudinary = require('cloudinary').v2;
+const streamifier = require('streamifier');
+
 
 const express = require("express");
 const multer = require('multer')
-const upload = multer({ dest: 'uploads/' })
+// const upload = multer({ dest: 'uploads/' })
+const upload = multer({
+  storage: multer.memoryStorage(), //https://cloudinary.com/blog/guest_post/upload-images-to-cloudinary-with-node-js-and-react memory storage (ram) instead of disk storage
+  limits: {
+    fileSize: 10 * 1024 * 1024, // 10MB limit per file
+    files: 5 // Max 5 files/request
+  }
+});
+
 const app = express();
 
 const passport = require("passport");
@@ -17,7 +29,6 @@ const { PrismaSessionStore } = require('@quixo3/prisma-session-store');
 const expressSession = require('express-session');
 
 //https://github.com/kleydon/prisma-session-store#readme   ; moved most of this to lib/prisma.js
-// require('dotenv/config'); //not require('dotenv').config(); ?
 // const { PrismaPg } = require('@prisma/adapter-pg');  // For other db adapters, see Prisma docs
 // const { PrismaClient } = require('./generated/prisma/client.js');
 // DATABASE_URL defined in env file included in prisma.config.js;
@@ -49,7 +60,8 @@ app.use(
 );
 app.use(passport.session());
 
-const fileRouter = require("./routes/fileRouter.js")
+const fileRouter = require("./routes/fileRouter.js");
+const { resolve } = require("node:dns");
 
 app.get("/", async (req, res) => {
   if (!req.user) return res.render("index", { user: null, folders: [], currentFolder: null });
@@ -180,32 +192,60 @@ app.post("/sign-in",
 
 //upload files either in home page or specified folderId
 //maybe move .get / and /:id to same get call in array like below when moving this to separate route folders?
-app.post(["/upload", "/upload/:folderId"], upload.array('files', 10), async (req, res) => {
+app.post(["/upload", "/upload/:folderId"], upload.array('files', 5), async (req, res) => {
   const parentFolderId = req.params.folderId ? parseInt(req.params.folderId) : null;
   console.log("req.files: ", req.files, "req.params: ", req.params)
+  if (!req.files || req.files.length === 0) {
+    return res.status(400).send('No files uploaded');
+  }
+  // https://cloudinary.com/blog/node_js_file_upload_to_a_local_server_or_to_the_cloud
+  const uploadPromises = req.files.map(file => {
+    return new Promise((resolve, reject) => {
+      const uploadStream = cloudinary.uploader.upload_stream(
+        { resource_type: "auto", type: "private" },
+        (error, result) => { //error, result
+          if (error) reject(error);
+          else resolve(result)
+        }
+      );
+      streamifier.createReadStream(file.buffer).pipe(uploadStream)
+    })
+  });
+
   try {
-    if (!req.files || req.files.length === 0) {
-      return res.status(400).send('No files uploaded');
-    }
-    console.log(`uploaded ${req.files.length} files(s)`)
-    const filesData = req.files.map(file => ({
-      name: file.originalname,
-      url: file.path,
-      size: file.size,
+    const cloudinaryResults = await Promise.all(uploadPromises);
+    const filesData = cloudinaryResults.map(result => ({
+      name: result.original_filename,
+      url: result.secure_url,
+      size: result.bytes,
       folderId: parentFolderId,
       userId: req.user.id
     }));
-    console.log("files data: ", filesData)
-
+    console.log(filesData, "filesdata")
     await prisma.file.createManyAndReturn({
       data: filesData,
-    })
+    });
     let redirectURL = parentFolderId ? `/${parentFolderId}` : "/"
     res.redirect(redirectURL);
   } catch (err) {
     console.error(err);
-    res.status(500).send("Upload failed");
+    res.status(500).send("Upload Failed");
   }
+
+  // try {
+  //   console.log(`uploaded ${req.files.length} files(s)`)
+  //   const filesData = req.files.map(file => ({
+  //     name: file.originalname,
+  //     url: file.path,
+  //     size: file.size,
+  //     folderId: parentFolderId,
+  //     userId: req.user.id
+  //   }));
+  //   console.log("files data: ", filesData)
+
+  //   await prisma.file.createManyAndReturn({
+  //     data: filesData,
+  //   })
 })
 
 app.post("/deleteFile/:fileId", async (req, res) => {
@@ -347,7 +387,7 @@ app.post("/deleteFolder/:id", async (req, res) => {
         let filePath = path.join(__dirname, file.url);
         await fs.unlink(filePath)
       } catch (err) {
-        console.error(`Could not delete from file system file ${file.name}: ` , err);
+        console.error(`Could not delete from file system file ${file.name}: `, err);
       }
     }
     await prisma.folder.delete({
@@ -413,10 +453,3 @@ app.listen(PORT, (error) => {
   }
   console.log("app listening on port 3000!");
 });
-
-
-
-// if i proceed with null home folder for each user:
-// each file must have an user assigned to it
-// the folderid of a file can be null
-// need separate logic in ejs and app.js/routes for creating in home page vs inside a folder
