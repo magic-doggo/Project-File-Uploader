@@ -74,7 +74,7 @@ app.get("/", async (req, res) => {
       userId: req.user.id
     }
   })
-  console.log(files)
+  // console.log("FILES: ",files)
   res.render("index", { user: req.user, folders, currentFolder: { files: files } }) // currentFolder is used by app.get("/:id") route, which shares same index page ejs
 });
 
@@ -99,8 +99,12 @@ app.get("/download/:fileId", async (req, res) => {
       }
     });
     if (!file) return res.status(404).send("File not Found");
-    const absolutePath = path.join(__dirname, file.url);
-    res.download(absolutePath, file.name);
+    // const absolutePath = path.join(__dirname, file.url);
+    // res.download(absolutePath, file.name);
+    const fileExtension = file.name.split('.').pop();
+    //https://cloudinary.com/documentation/control_access_to_media#example_2_video_with_extended_expiry_time
+    const signedUrl = cloudinary.utils.private_download_url(file.publicId, fileExtension, { expires_at: Math.floor(Date.now() / 1000) + 3600 })//1hr 
+    res.redirect(signedUrl);
   } catch (err) {
     console.error(err);
     res.status(500).send("error downloading file");
@@ -139,7 +143,7 @@ app.get("/:id", async (req, res, next) => {
       include: { children: true, files: true }
     });
     if (!currentFolder) return res.status(404).send("Folder not found")
-    console.log("currentFolder: ", currentFolder, " CurrentFolderChildren: ", currentFolder.children)
+    // console.log("currentFolder: ", currentFolder, " CurrentFolderChildren: ", currentFolder.children)
     res.render("index", { user: req.user, folders: currentFolder.children, currentFolder })
 
   } catch (err) {
@@ -214,8 +218,8 @@ app.post(["/upload", "/upload/:folderId"], upload.array('files', 5), async (req,
 
   try {
     const cloudinaryResults = await Promise.all(uploadPromises);
-    const filesData = cloudinaryResults.map(result => ({
-      name: result.original_filename,
+    const filesData = cloudinaryResults.map((result, index) => ({
+      name: req.files[index].originalname,
       url: result.secure_url,
       publicId: result.public_id, //https://cloudinary.com/documentation/control_access_to_media#providing_time_limited_access_to_private_media_assets
       size: result.bytes,
@@ -232,21 +236,6 @@ app.post(["/upload", "/upload/:folderId"], upload.array('files', 5), async (req,
     console.error(err);
     res.status(500).send("Upload Failed");
   }
-
-  // try {
-  //   console.log(`uploaded ${req.files.length} files(s)`)
-  //   const filesData = req.files.map(file => ({
-  //     name: file.originalname,
-  //     url: file.path,
-  //     size: file.size,
-  //     folderId: parentFolderId,
-  //     userId: req.user.id
-  //   }));
-  //   console.log("files data: ", filesData)
-
-  //   await prisma.file.createManyAndReturn({
-  //     data: filesData,
-  //   })
 })
 
 app.post("/deleteFile/:fileId", async (req, res) => {
