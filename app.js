@@ -99,11 +99,14 @@ app.get("/download/:fileId", async (req, res) => {
       }
     });
     if (!file) return res.status(404).send("File not Found");
-    // const absolutePath = path.join(__dirname, file.url);
-    // res.download(absolutePath, file.name);
-    const fileExtension = file.name.split('.').pop();
+    // const fileExtension = file.name.split('.').pop();
+    const fileExtension = '';
     //https://cloudinary.com/documentation/control_access_to_media#example_2_video_with_extended_expiry_time
-    const signedUrl = cloudinary.utils.private_download_url(file.publicId, fileExtension, { expires_at: Math.floor(Date.now() / 1000) + 3600 })//1hr 
+    const signedUrl = cloudinary.utils.private_download_url(file.publicId, fileExtension, {
+      resource_type: "raw", //changed upload and download to raw so I can download anything without knowing extension type. I could store extension type in db instead?
+      expires_at: Math.floor(Date.now() / 1000) + 3600,
+      attachment: true
+    })//1hr 
     res.redirect(signedUrl);
   } catch (err) {
     console.error(err);
@@ -206,7 +209,7 @@ app.post(["/upload", "/upload/:folderId"], upload.array('files', 5), async (req,
   const uploadPromises = req.files.map(file => {
     return new Promise((resolve, reject) => {
       const uploadStream = cloudinary.uploader.upload_stream(
-        { resource_type: "auto", type: "private" },
+        { resource_type: "raw", type: "private" },
         (error, result) => { //error, result
           if (error) reject(error);
           else resolve(result)
@@ -251,13 +254,10 @@ app.post("/deleteFile/:fileId", async (req, res) => {
     if (!file) {
       return res.status(404).send("File not found or belongs to another user")
     }
-    // try {
-    //   const filePath = path.join(__dirname, file.url);
-    //   await fs.unlink(filePath);
-    // } catch (err) {
-    //   console.err("Could not delete from file system: ", err)
-    // }
-    const cloudinaryResponse = await cloudinary.uploader.destroy(file.publicId, { type: "private" });
+    const cloudinaryResponse = await cloudinary.uploader.destroy(file.publicId, {
+      type: "private",
+      resource_type: "raw" //changed to raw since was having trouble downloading some file types, now it treats everything the same
+    });
     if (cloudinaryResponse.result !== "ok") {
       console.error("Cloudinary deletion failed: ", cloudinaryResponse);
       return res.status(500).send(`Failed to delete from Cloudinary: ${cloudinaryResponse.result}`);
