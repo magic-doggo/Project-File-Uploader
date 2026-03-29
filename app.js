@@ -217,6 +217,7 @@ app.post(["/upload", "/upload/:folderId"], upload.array('files', 5), async (req,
     const filesData = cloudinaryResults.map(result => ({
       name: result.original_filename,
       url: result.secure_url,
+      publicId: result.public_id, //https://cloudinary.com/documentation/control_access_to_media#providing_time_limited_access_to_private_media_assets
       size: result.bytes,
       folderId: parentFolderId,
       userId: req.user.id
@@ -261,12 +262,16 @@ app.post("/deleteFile/:fileId", async (req, res) => {
     if (!file) {
       return res.status(404).send("File not found or belongs to another user")
     }
-
-    try {
-      const filePath = path.join(__dirname, file.url);
-      await fs.unlink(filePath);
-    } catch (err) {
-      console.err("Could not delete from file system: ", err)
+    // try {
+    //   const filePath = path.join(__dirname, file.url);
+    //   await fs.unlink(filePath);
+    // } catch (err) {
+    //   console.err("Could not delete from file system: ", err)
+    // }
+    const cloudinaryResponse = await cloudinary.uploader.destroy(file.publicId, { type: "private" });
+    if (cloudinaryResponse.result !== "ok") {
+      console.error("Cloudinary deletion failed: ", cloudinaryResponse);
+      return res.status(500).send(`Failed to delete from Cloudinary: ${cloudinaryResponse.result}`);
     }
 
     await prisma.file.delete({
@@ -280,20 +285,6 @@ app.post("/deleteFile/:fileId", async (req, res) => {
     console.error(err);
     res.status(500).send("Failed to delete file");
   }
-
-  // try {
-  //   await prisma.file.delete({
-  //     where: {
-  //       id: fileId,
-  //       userId: req.user.id
-  //     }
-  //   })
-  //   const backURL = req.get('Referrer') || '/';
-  //   res.redirect(backURL);
-  // } catch (err) {
-  //   console.error(err);
-  //   res.status(500).send("Failed to delete file")
-  // }
 })
 
 app.post("/createNewFolder", async (req, res) => {
