@@ -13,59 +13,102 @@
                 <div>You are not logged in. Please <a href="/sign-in">log in</a> to upload a file, or review your
                     current files!</div>
                 <% } else { %>
-                    <form action="/upload<%= currentFolder ? ('/' + currentFolder.id) : '' %>" method="post" enctype="multipart/form-data">
-                        <label for="files">Choose files to upload</label>
+                    <form id="upload-form" action="/upload<%= currentFolder ? ('/' + currentFolder.id) : '' %>"
+                        method="post" enctype="multipart/form-data">
+                        <label for="files">Choose up to 5 files to upload (Max 5 mb each)</label>
                         <input type="file" id="files" name="files" multiple />
                         <button type="submit">Submit</button>
+                        <div id="file-error" style="color: red; margin-top: 10px; display: none;"></div>
                     </form><br>
 
                     <form action=" <%= currentFolder ? ('/' + currentFolder.id) : '' %>/createNewFolder" method="post">
                         <label for="folder">Create a new Folder</label>
-                        <input type="text" id="folder" name="folder" placeholder="folder name" required/>
+                        <input type="text" id="folder" name="folder" placeholder="folder name" required />
                         <button type="submit">Create folder</button>
                     </form>
                     <% } %>
 
-            <h2>Files in current Folder (<%= currentFolder?.name ? currentFolder.name : "Home Folder" %>):</h2>
-            <!-- make separate message if folder is empty? -->
-            <ul>
-                <% currentFolder?.files?.forEach(file => {%>
-                    <li>
-                        <a href="/file/<%=file.id%>"><%= file.name %> (<%= (file.size / 1024).toFixed(2) %> KB)</a>
-                        <a href="/download/<%= file.id %>">Download file</a>
-                        <form action="/deleteFile/<%= file.id%>" method="post">
-                            <button type="submit">Delete file</button>
-                        </form>
-                    </li>
-                <%}) %>
-            </ul>
+                        <h2>Files in current Folder (<%= currentFolder?.name ? currentFolder.name : "Home Folder" %>): </h2>
+                        <!-- make separate message if folder is empty? -->
+                        <% if (currentFolder?.files?.length > 0) { %>
+                        <ul>
+                            <% currentFolder?.files?.forEach(file=> {%>
+                                <li>
+                                    <a href="/file/<%=file.id%>">
+                                        <%= file.name %> (<%= (file.size / 1024).toFixed(2) %> KB)
+                                    </a>
+                                    <a href="/download/<%= file.id %>">Download file</a>
+                                    <form action="/deleteFile/<%= file.id%>" method="post">
+                                        <button type="submit">Delete file</button>
+                                    </form>
+                                </li>
+                                <%}) %>
+                        </ul>
+                        <% } else { %>
+                            <p>No files in current folder</p>
+                        <% } %>
 
-            <h2>Sub-folders:</h2>
-            <div>
-                <ul>
-                    <% folders.forEach(folder => { %>
-                        <li>
-                            <a href="/<%= folder.id%>"><%=folder.name%></a>
+                        <h2>Sub-folders:</h2>
+                        <% if (folders?.length > 0) { %>
+                        <div>
+                            <ul>
+                                <% folders.forEach(folder=> { %>
+                                    <li>
+                                        <a href="/<%= folder.id%>">
+                                            <%=folder.name%>
+                                        </a>
 
-                            <button onclick="renameFolder('<%= folder.id %>', '<%= folder.name %>')">Rename</button>
-                            <form id="rename-form" method="post" style="display:none"></form>
-                            <form action="/deleteFolder/<%=folder.id%>" method="post" 
-                                onsubmit="return confirm('WARNING: This will permanently delete the folder \`<%=folder.name %>\` and all files and folders inside! Proceed?');">
-                                <button type="submit">Delete Folder</button>
-                            </form>
-                        </li>
-                    <%})%>
-                </ul>
-            </div>
-            <div>
-               <% if (currentFolder){ %>
-                <a href="<%= currentFolder.parentId ? '/' + currentFolder.parentId : '/' %>">Back</a>
-               <%}%>
-            </div>
+                                        <button
+                                            onclick="renameFolder('<%= folder.id %>', '<%= folder.name %>')">Rename</button>
+                                        <form id="rename-form" method="post" style="display:none"></form>
+                                        <form action="/deleteFolder/<%=folder.id%>" method="post"
+                                            onsubmit="return confirm('WARNING: This will permanently delete the folder \`<%=folder.name %>\` and all files and folders inside! Proceed?');">
+                                            <button type="submit">Delete Folder</button>
+                                        </form>
+                                    </li>
+                                    <%})%>
+                            </ul>
+                        </div>
+                        <% } else { %>
+                            <p>No subfolders in current folder.</p>
+                        <% } %>
+                        <div>
+                            <% if (currentFolder){ %>
+                                <a href="<%= currentFolder.parentId ? '/' + currentFolder.parentId : '/' %>">Back</a>
+                                <%}%>
+                        </div>
         </div>
         <script>
+            document.getElementById('upload-form').addEventListener('submit', function (e) {
+                const fileInput = document.getElementById('files');
+                const errorDiv = document.getElementById('file-error');
+                const maxSize = 5 * 1024 * 1024; // 5MB
+                const blockedExtensions = ['.exe', '.bat', '.msi', '.cmd', '.sh', '.vbs', '.scr'];
+
+                for (let i = 0; i < fileInput.files.length; i++) {
+                    const file = fileInput.files[i];
+                    if (file.size > maxSize) {
+                        e.preventDefault();
+                        errorDiv.textContent = `Upload failed: "${file.name}" exceeds the 5MB limit.`;
+                        errorDiv.style.display = 'block';
+                        return;
+                    }
+
+                    const ext = file.name.substring(file.name.lastIndexOf('.')).toLowerCase();
+
+                    if (blockedExtensions.includes(ext)) {
+                        e.preventDefault();
+                        errorDiv.textContent = `Security block: Files ending in "${ext}" are not allowed.`;
+                        errorDiv.style.display = 'block';
+                        return;
+                    }
+                }
+                // Hide if no errors
+                errorDiv.style.display = 'none';
+            });
+
             function renameFolder(folderId, oldName) {
-                const newName = window.prompt("Enter a new Folder Name:" , oldName);
+                const newName = window.prompt("Enter a new Folder Name:", oldName);
                 if (newName !== null && newName.trim() !== "") {
                     const form = document.getElementById('rename-form');
                     form.action = `/renameFolder/${folderId}`;

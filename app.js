@@ -14,6 +14,15 @@ const upload = multer({
   limits: {
     fileSize: 10 * 1024 * 1024, // 10MB limit per file
     files: 5 // Max 5 files/request
+  },
+  fileFilter: (req, file, cb) => {
+    const blockedExtensions = ['.exe', '.bat', '.msi', '.cmd', '.sh', '.vbs', '.scr'];
+    const ext = path.extname(file.originalname).toLowerCase();
+
+    if (blockedExtensions.includes(ext)) {
+      return cb(new Error(`Security block: ${ext} files are not allowed.`), false);
+    }
+    cb(null, true);
   }
 });
 
@@ -108,7 +117,7 @@ app.get("/download/:fileId", async (req, res) => {
       file.publicId,
       fileExtension,
       {
-        resource_type: resourceType,                      
+        resource_type: resourceType,
         expires_at: Math.floor(Date.now() / 1000) + 3600,
         attachment: true
       }
@@ -228,7 +237,6 @@ app.post(["/upload", "/upload/:folderId"], upload.array('files', 5), async (req,
       streamifier.createReadStream(file.buffer).pipe(uploadStream);
     })
   });
-
   try {
     const cloudinaryResults = await Promise.all(uploadPromises);
     const filesData = cloudinaryResults.map((result, index) => ({
@@ -250,6 +258,15 @@ app.post(["/upload", "/upload/:folderId"], upload.array('files', 5), async (req,
     res.status(500).send("Upload Failed");
   }
 })
+//to stop app from crashing invalid files attached
+app.use((err, req, res, next) => {
+  if (err instanceof multer.MulterError) {
+    return res.status(400).send(`Upload error: ${err.message}`);
+  } else if (err) {
+    return res.status(400).send(err.message);
+  }
+  next();
+});
 
 app.post("/deleteFile/:fileId", async (req, res) => {
   if (!req.user) return res.redirect("/sign-in");
@@ -378,9 +395,19 @@ app.post("/deleteFolder/:id", async (req, res) => {
     })
 
     for (let file of files) {
-      try {
-        let filePath = path.join(__dirname, file.url);
-        await fs.unlink(filePath)
+      try {//could try without try catch, so app stops the process if there is an error, and does not delete folder? would help against files orphaned in cloudinary 
+        const resourceType = file.url.includes('/raw/') ? 'raw'
+          : file.url.includes('/video/') ? 'video'
+            : 'image';
+
+        const cloudinaryResponse = await cloudinary.uploader.destroy(file.publicId, {
+          type: "private",
+          resource_type: resourceType
+        });
+        if (cloudinaryResponse.result !== "ok") {
+          console.error(`Cloudinary deletion failed: for ${file.name} `, cloudinaryResponse);
+          // return res.status(500).send(`Failed to delete from Cloudinary: ${cloudinaryResponse.result}`);
+        }
       } catch (err) {
         console.error(`Could not delete from file system file ${file.name}: `, err);
       }
@@ -394,7 +421,7 @@ app.post("/deleteFolder/:id", async (req, res) => {
     const backURL = req.get('Referrer') || '/';
     res.redirect(backURL);
   } catch (err) {
-    console.error()
+    console.error("Folder deletion error: ", err)
     res.status(500).send("Could not delete folder. It does not exist or you do not own this folder");
   }
 })
@@ -438,7 +465,6 @@ passport.deserializeUser(async (id, done) => {
     done(err);
   }
 })
-
 
 const PORT = 3000;
 app.listen(PORT, (error) => {
