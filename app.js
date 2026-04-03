@@ -99,14 +99,20 @@ app.get("/download/:fileId", async (req, res) => {
       }
     });
     if (!file) return res.status(404).send("File not Found");
-    // const fileExtension = file.name.split('.').pop();
-    const fileExtension = '';
-    //https://cloudinary.com/documentation/control_access_to_media#example_2_video_with_extended_expiry_time
-    const signedUrl = cloudinary.utils.private_download_url(file.publicId, fileExtension, {
-      resource_type: "raw", //changed upload and download to raw so I can download anything without knowing extension type. I could store extension type in db instead?
-      expires_at: Math.floor(Date.now() / 1000) + 3600,
-      attachment: true
-    })//1hr 
+    const resourceType = file.url.includes('/raw/') ? 'raw'
+      : file.url.includes('/video/') ? 'video'
+        : 'image';
+    const fileExtension = resourceType === 'raw' ? '' : file.name.split('.').pop();
+    // //https://cloudinary.com/documentation/control_access_to_media#example_2_video_with_extended_expiry_time
+    const signedUrl = cloudinary.utils.private_download_url(
+      file.publicId,
+      fileExtension,
+      {
+        resource_type: resourceType,                      
+        expires_at: Math.floor(Date.now() / 1000) + 3600,
+        attachment: true
+      }
+    );
     res.redirect(signedUrl);
   } catch (err) {
     console.error(err);
@@ -209,13 +215,17 @@ app.post(["/upload", "/upload/:folderId"], upload.array('files', 5), async (req,
   const uploadPromises = req.files.map(file => {
     return new Promise((resolve, reject) => {
       const uploadStream = cloudinary.uploader.upload_stream(
-        { resource_type: "raw", type: "private" },
+        {
+          resource_type: "auto",
+          type: "private",
+          public_id: file.originalname
+        },
         (error, result) => { //error, result
           if (error) reject(error);
           else resolve(result)
         }
       );
-      streamifier.createReadStream(file.buffer).pipe(uploadStream)
+      streamifier.createReadStream(file.buffer).pipe(uploadStream);
     })
   });
 
@@ -254,9 +264,14 @@ app.post("/deleteFile/:fileId", async (req, res) => {
     if (!file) {
       return res.status(404).send("File not found or belongs to another user")
     }
+    // find Cloudinary bucket type
+    const resourceType = file.url.includes('/raw/') ? 'raw'
+      : file.url.includes('/video/') ? 'video'
+        : 'image';
+
     const cloudinaryResponse = await cloudinary.uploader.destroy(file.publicId, {
       type: "private",
-      resource_type: "raw" //changed to raw since was having trouble downloading some file types, now it treats everything the same
+      resource_type: resourceType
     });
     if (cloudinaryResponse.result !== "ok") {
       console.error("Cloudinary deletion failed: ", cloudinaryResponse);
@@ -392,7 +407,6 @@ passport.use(
       // const { rows } = await pool.query("SELECT * FROM Users WHERE email = $1", [username]);
       // const user = rows[0];
       const user = await prisma.user.findUnique({ where: { email: email } }) //where: {id: 42}
-      // console.log(user, "user")
       if (!user) {
         console.log("no user")
         return done(null, false, { message: "Incorrect username" });
